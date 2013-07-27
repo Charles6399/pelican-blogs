@@ -182,8 +182,8 @@ class BlogGenerator(Generator):
         if self.settings.get('FEED_ALL_ATOM') or \
                 self.settings.get('FEED_ALL_RSS'):
             all_entries = list(self.entries)
-            for article in self.entries:
-                all_entries.extend(article.translations)
+            for entry in self.entries:
+                all_entries.extend(entry.translations)
             all_entries.sort(key=attrgetter('date'), reverse=True)
 
             if self.settings.get('FEED_ALL_ATOM'):
@@ -221,8 +221,8 @@ class BlogGenerator(Generator):
         if self.settings.get('TRANSLATION_FEED_ATOM') or \
                 self.settings.get('TRANSLATION_FEED_RSS'):
             translations_feeds = defaultdict(list)
-            for article in chain(self.entries, self.translations):
-                translations_feeds[article.lang].append(article)
+            for entry in chain(self.entries, self.translations):
+                translations_feeds[entry.lang].append(entry)
 
             for lang, items in translations_feeds.items():
                 items.sort(key=attrgetter('date'), reverse=True)
@@ -236,9 +236,9 @@ class BlogGenerator(Generator):
 
     def generate_entries(self, write):
         """Generate the entries."""
-        for article in chain(self.translations, self.entries):
-            write(article.save_as, self.get_template(article.template),
-                self.context, article=article, category=article.category)
+        for entry in chain(self.translations, self.entries):
+            write(entry.save_as, self.get_template(entry.template),
+                self.context, article=entry, category=entry.category)
 
     def generate_direct_templates(self, write):
         """Generate direct templates pages"""
@@ -249,8 +249,6 @@ class BlogGenerator(Generator):
                 paginated = {'entries': self.entries, 'dates': self.dates}
             save_as = self.settings.get("%s_SAVE_AS" % template.upper(),
                                                         '%s.html' % template)
-            logger.warning("DIRECT")
-            logger.warning("%s_SAVE_AS" % template.upper())
             if not save_as:
                 continue
 
@@ -263,7 +261,7 @@ class BlogGenerator(Generator):
         tag_template = self.get_template('tag')
         for tag, entries in self.tags.items():
             entries.sort(key=attrgetter('date'), reverse=True)
-            dates = [article for article in self.dates if article in entries]
+            dates = [entry for entry in self.dates if entry in entries]
             write(tag.save_as, tag_template, self.context, tag=tag,
                 entries=entries, dates=dates,
                 paginated={'entries': entries, 'dates': dates},
@@ -273,7 +271,7 @@ class BlogGenerator(Generator):
         """Generate category pages."""
         category_template = self.get_template('category')
         for cat, entries in self.categories:
-            dates = [article for article in self.dates if article in entries]
+            dates = [entry for entry in self.dates if entry in entries]
             write(cat.save_as, category_template, self.context,
                 category=cat, entries=entries, dates=dates,
                 paginated={'entries': entries, 'dates': dates},
@@ -283,7 +281,7 @@ class BlogGenerator(Generator):
         """Generate Author pages."""
         author_template = self.get_template('author')
         for aut, entries in self.authors:
-            dates = [article for article in self.dates if article in entries]
+            dates = [entry for entry in self.dates if entry in entries]
             write(aut.save_as, author_template, self.context,
                 author=aut, entries=entries, dates=dates,
                 paginated={'entries': entries, 'dates': dates},
@@ -291,10 +289,10 @@ class BlogGenerator(Generator):
 
     def generate_drafts(self, write):
         """Generate drafts pages."""
-        for article in self.drafts:
-            write('drafts/%s.html' % article.slug,
-                self.get_template(article.template), self.context,
-                article=article, category=article.category)
+        for entry in self.drafts:
+            write('drafts/%s.html' % entry.slug,
+                self.get_template(entry.template), self.context,
+                article=entry, category=entry.category)
 
     def generate_pages(self, writer):
         """Generate the pages on the disk"""
@@ -315,12 +313,12 @@ class BlogGenerator(Generator):
     def generate_context(self):
         """Add the entries into the shared context"""
 
-        article_path = os.path.normpath(  # we have to remove trailing slashes
+        entry_path = os.path.normpath(  # we have to remove trailing slashes
             os.path.join(self.path, self.settings['BLOG_DIR'])
         )
         all_entries = []
         for f in self.get_files(
-                article_path,
+                entry_path,
                 exclude=self.settings['BLOG_EXCLUDES']):
             try:
                 signals.entry_generate_preread.send(self)
@@ -333,7 +331,7 @@ class BlogGenerator(Generator):
             if 'category' not in metadata:
 
                 if (self.settings['USE_FOLDER_AS_CATEGORY']
-                    and os.path.dirname(f) != article_path):
+                    and os.path.dirname(f) != entry_path):
                     # if the article is in a subdirectory
                     category = os.path.basename(os.path.dirname(f))\
                         .decode('utf-8')
@@ -353,34 +351,33 @@ class BlogGenerator(Generator):
                             *self.settings['DEFAULT_DATE'])
 
             signals.entry_generate_context.send(self, metadata=metadata)
-            article = Blog(content, metadata, settings=self.settings,
+            entry = Blog(content, metadata, settings=self.settings,
                               filename=f, context=self.context)
-            logger.warning(article.save_as)
-            if not is_valid_content(article, f):
+            if not is_valid_content(entry, f):
                 continue
 
-            self.add_filename(article)
+            self.add_filename(entry)
 
-            if article.status == "published":
-                if hasattr(article, 'tags'):
-                    for tag in article.tags:
-                        self.tags[tag].append(article)
-                all_entries.append(article)
-            elif article.status == "draft":
-                self.drafts.append(article)
+            if entry.status == "published":
+                if hasattr(entry, 'tags'):
+                    for tag in entry.tags:
+                        self.tags[tag].append(entry)
+                all_entries.append(entry)
+            elif entry.status == "draft":
+                self.drafts.append(entry)
             else:
                 logger.warning(u"Unknown status %s for file %s, skipping it." %
-                               (repr(unicode.encode(article.status, 'utf-8')),
+                               (repr(unicode.encode(entry.status, 'utf-8')),
                                 repr(f)))
 
         self.entries, self.translations = process_translations(all_entries)
 
-        for article in self.entries:
+        for entry in self.entries:
             # only main entries are listed in categories, not translations
-            self.categories[article.category].append(article)
+            self.categories[entry.category].append(entry)
             # ignore blank authors as well as undefined
-            if hasattr(article,'author') and article.author.name != '':
-                self.authors[article.author].append(article)
+            if hasattr(entry,'author') and entry.author.name != '':
+                self.authors[entry.author].append(entry)
 
         # sort the entries by date
         self.entries.sort(key=attrgetter('date'), reverse=True)
@@ -390,8 +387,8 @@ class BlogGenerator(Generator):
 
         # create tag cloud
         tag_cloud = defaultdict(int)
-        for article in self.entries:
-            for tag in getattr(article, 'tags', []):
+        for entry in self.entries:
+            for tag in getattr(entry, 'tags', []):
                 tag_cloud[tag] += 1
 
         tag_cloud = sorted(tag_cloud.items(), key=itemgetter(1), reverse=True)
