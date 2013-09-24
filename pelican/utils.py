@@ -13,6 +13,7 @@ from datetime import datetime
 from itertools import groupby
 from jinja2 import Markup
 from operator import attrgetter
+from lxml.html.clean import clean_html
 
 logger = logging.getLogger(__name__)
 
@@ -336,3 +337,7 @@ def mkdir_p(path):
     except OSError, e:
         if e.errno != errno.EEXIST:
             raise
+
+
+def only_text(html):
+    return Markup(clean_html(html))

@@ -19,7 +19,7 @@ from jinja2 import (Environment, FileSystemLoader, PrefixLoader, ChoiceLoader,
 from pelican.contents import Article, Blog, Page, Category, StaticContent, \
         is_valid_content
 from pelican.readers import read_file
-from pelican.utils import copy, process_translations, mkdir_p
+from pelican.utils import copy, process_translations, mkdir_p, only_text
 from pelican import signals
 
 
@@ -57,6 +57,8 @@ class Generator(object):
             ]),
             extensions=self.settings.get('JINJA_EXTENSIONS', []),
         )
+
+        self.env.filters['only_text'] = only_text
 
         logger.debug('template list: {0}'.format(self.env.list_templates()))
 
