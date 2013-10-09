@@ -81,7 +81,7 @@ class SitemapGenerator(object):
                 self.format = fmt
                 return
 
-            valid_keys = ('articles', 'indexes', 'pages')
+            valid_keys = ('articles', 'indexes', 'pages', 'entries')
             valid_chfreqs = ('always', 'hourly', 'daily', 'weekly', 'monthly',
                     'yearly', 'never')
 
@@ -114,11 +114,13 @@ class SitemapGenerator(object):
 
 
     def write_url(self, page, fd):
-
         if getattr(page, 'status', 'published') != 'published':
             return
 
-        page_path = os.path.join(self.output_path, page.url)
+        if isinstance(page, contents.Blog):
+            page_path = os.path.join(self.output_path, 'blog',  page.url)
+        else:
+            page_path = os.path.join(self.output_path, page.url)
         if not os.path.exists(page_path):
             return
 
@@ -127,6 +129,9 @@ class SitemapGenerator(object):
         if isinstance(page, contents.Article):
             pri = self.priorities['articles']
             chfreq = self.changefreqs['articles']
+        elif isinstance(page, contents.Blog):
+            pri = self.priorities['entries']
+            chfreq = self.changefreqs['entries']
         elif isinstance(page, contents.Page):
             pri = self.priorities['pages']
             chfreq = self.changefreqs['pages']
@@ -144,10 +149,7 @@ class SitemapGenerator(object):
     def generate_output(self, writer):
         path = os.path.join(self.output_path, 'sitemap.{0}'.format(self.format))
 
-        pages = self.context['pages'] + self.context['articles'] \
-                + [ c for (c, a) in self.context['categories']] \
-                + [ t for (t, a) in self.context['tags']] \
-                + [ a for (a, b) in self.context['authors']]
+        pages = self.context['pages'] + self.context['articles'] + self.context['entries'] \
 
         for article in self.context['articles']:
             pages += article.translations
@@ -166,10 +168,7 @@ class SitemapGenerator(object):
                                                'date',
                                                'url'])
 
-            for standard_page_url in ['index.html',
-                                      'archives.html',
-                                      'tags.html',
-                                      'categories.html']:
+            for standard_page_url in ['index.html']:
                 fake = FakePage(status='published',
                                 date=self.now,
                                 url=standard_page_url)
